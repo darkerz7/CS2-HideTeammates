@@ -9,12 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.316" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="ClientPrefsAPI">
-      <HintPath>API\ClientPrefsAPI.dll</HintPath>
+    <Reference Include="PlayerSettingsApi">
+      <HintPath>API\PlayerSettingsApi.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

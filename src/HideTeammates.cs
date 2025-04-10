@@ -1,5 +1,4 @@
-﻿using ClientPrefsAPI;
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Cvars.Validators;
 using CounterStrikeSharp.API.Modules.Cvars;
@@ -10,13 +9,17 @@ using CounterStrikeSharp.API.Modules.Timers;
 using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using PlayerSettings;
 
 namespace CS2_HideTeammates
 {
 	public class HideTeammates : BasePlugin
 	{
 		readonly float TIMERTIME = 0.3f;
-		static IClientPrefsAPI _CP_api;
+#nullable enable
+		private ISettingsApi? _PlayerSettingsAPI;
+		private readonly PluginCapability<ISettingsApi?> _PlayerSettingsAPICapability = new("settings:nfcore");
+#nullable disable
 		bool g_bEnable = true;
 		int g_iMaxDistance = 8000;
 		bool g_bHideComm = false;
@@ -36,19 +39,12 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.5.1";
+		public override string ModuleVersion => "1.DZ.5.2";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
-			try
-			{
-				PluginCapability<IClientPrefsAPI> CapabilityEW = new("clientprefs:api");
-				_CP_api = IClientPrefsAPI.Capability.Get();
-			}
-			catch (Exception)
-			{
-				_CP_api = null;
-				UI.PrintToConsole("ClientPrefs API Failed!", 15);
-			}
+			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
+			if (_PlayerSettingsAPI == null)
+				UI.PrintToConsole("PlayerSettings core not found...");
 
 			if (hotReload)
 			{
@@ -303,14 +299,14 @@ namespace CS2_HideTeammates
 #nullable disable
 		{
 			if (player == null || !player.IsValid) return;
-			if (_CP_api != null)
+			if (_PlayerSettingsAPI != null)
 			{
-				string sHide = _CP_api.GetClientCookie(player.SteamID.ToString(), "HT_Hide");
+				string sHide = _PlayerSettingsAPI.GetPlayerSettingsValue(player, "HT_Hide", "0");
 				if (string.IsNullOrEmpty(sHide) || !Int32.TryParse(sHide, out int iHide)) iHide = 0;
 				if (iHide == 0) g_bHide[player.Slot] = false;
 				else g_bHide[player.Slot] = true;
 
-				string sDistance = _CP_api.GetClientCookie(player.SteamID.ToString(), "HT_Distance");
+				string sDistance = _PlayerSettingsAPI.GetPlayerSettingsValue(player, "HT_Distance", "0");
 				if (string.IsNullOrEmpty(sDistance) || !Int32.TryParse(sDistance, out int iDistance)) iDistance = 0;
 				if (iDistance <= 0) iDistance = 0;
 				else if (iDistance >= g_iMaxDistance) iDistance = g_iMaxDistance;
@@ -322,12 +318,12 @@ namespace CS2_HideTeammates
 #nullable disable
 		{
 			if (player == null || !player.IsValid) return;
-			if (_CP_api != null)
+			if (_PlayerSettingsAPI != null)
 			{
-				if (g_bHide[player.Slot]) _CP_api.SetClientCookie(player.SteamID.ToString(), "HT_Hide", "1");
-				else _CP_api.SetClientCookie(player.SteamID.ToString(), "HT_Hide", "0");
+				if (g_bHide[player.Slot]) _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Hide", "1");
+				else _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Hide", "0");
 
-				_CP_api.SetClientCookie(player.SteamID.ToString(), "HT_Distance", g_iDistance[player.Slot].ToString());
+				_PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Distance", g_iDistance[player.Slot].ToString());
 			}
 		}
 
