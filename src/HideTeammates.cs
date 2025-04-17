@@ -39,7 +39,7 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.5.2";
+		public override string ModuleVersion => "1.DZ.6";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -86,6 +86,7 @@ namespace CS2_HideTeammates
 
 			RegisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			RegisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
+			RegisterEventHandler<EventPlayerDeath>(OnEventPlayerDeathPre);
 			RegisterListener<OnMapStart>(OnMapStart_Listener);
 			RegisterListener<OnMapEnd>(OnMapEnd_Listener);
 			RegisterListener<CheckTransmit>(OnTransmit);
@@ -99,6 +100,7 @@ namespace CS2_HideTeammates
 			StateTransition.Unhook(Hook_StateTransition, HookMode.Post);
 			DeregisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			DeregisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
+			DeregisterEventHandler<EventPlayerDeath>(OnEventPlayerDeathPre);
 			RemoveListener<OnMapStart>(OnMapStart_Listener);
 			RemoveListener<OnMapEnd>(OnMapEnd_Listener);
 			RemoveListener<CheckTransmit>(OnTransmit);
@@ -157,6 +159,28 @@ namespace CS2_HideTeammates
 		HookResult OnEventPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
 		{
 			GetValue(@event.Userid);
+			return HookResult.Continue;
+		}
+
+		[GameEventHandler(mode: HookMode.Pre)]
+		private HookResult OnEventPlayerDeathPre(EventPlayerDeath @event, GameEventInfo info)
+		{
+#nullable enable
+			CCSPlayerController? player = @event.Userid;
+#nullable disable
+			if (player != null && player.IsValid)
+			{
+				player.DesiredObserverMode = (int)ObserverMode_t.OBS_MODE_ROAMING;
+				Server.NextFrame(() =>
+				{
+					if (player != null && player.IsValid)
+					{
+						player.ObserverPawn.Value!.ObserverServices!.ForcedObserverMode = true;
+						player.ObserverPawn.Value!.ObserverServices!.ObserverMode = (byte)ObserverMode_t.OBS_MODE_ROAMING;
+						player.ObserverPawn.Value!.ObserverServices!.ObserverLastMode = ObserverMode_t.OBS_MODE_ROAMING;
+					}
+				});
+			}
 			return HookResult.Continue;
 		}
 
