@@ -8,7 +8,6 @@ using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Modules.Timers;
 using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using PlayerSettings;
 
 namespace CS2_HideTeammates
@@ -26,12 +25,9 @@ namespace CS2_HideTeammates
 		bool[] g_bHide = new bool[65];
 		int[] g_iDistance = new int[65];
 		bool[] g_bRMB = new bool[65];
+		bool[] g_bHideObserverFix = new bool[65];
 		List<CCSPlayerController>[] g_Target = new List<CCSPlayerController>[65];
 		CounterStrikeSharp.API.Modules.Timers.Timer g_Timer;
-
-		//Client Crash Fix From: https://github.com/qstage/CS2-HidePlayers
-		private static readonly MemoryFunctionVoid<CCSPlayerPawn, CSPlayerState> StateTransition = new(GameData.GetSignature("StateTransition"));
-		private readonly INetworkServerService networkServerService = new();
 
 		public FakeConVar<bool> Cvar_Enable = new("css_ht_enabled", "Disabled/enabled [0/1]", true, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public FakeConVar<int> Cvar_MaxDistance = new("css_ht_maximum", "The maximum distance a player can choose [1000-8000]", 8000, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<int>(1000, 8000));
@@ -39,7 +35,7 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.6";
+		public override string ModuleVersion => "1.DZ.6.1";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -56,7 +52,6 @@ namespace CS2_HideTeammates
 		}
 		public override void Load(bool hotReload)
 		{
-			StateTransition.Hook(Hook_StateTransition, HookMode.Post);
 			for (int i = 0; i < 65; i++) g_Target[i] = [];
 			UI.Strlocalizer = Localizer;
 
@@ -86,7 +81,6 @@ namespace CS2_HideTeammates
 
 			RegisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			RegisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
-			RegisterEventHandler<EventPlayerDeath>(OnEventPlayerDeathPre);
 			RegisterListener<OnMapStart>(OnMapStart_Listener);
 			RegisterListener<OnMapEnd>(OnMapEnd_Listener);
 			RegisterListener<CheckTransmit>(OnTransmit);
@@ -97,43 +91,14 @@ namespace CS2_HideTeammates
 
 		public override void Unload(bool hotReload)
 		{
-			StateTransition.Unhook(Hook_StateTransition, HookMode.Post);
 			DeregisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			DeregisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
-			DeregisterEventHandler<EventPlayerDeath>(OnEventPlayerDeathPre);
 			RemoveListener<OnMapStart>(OnMapStart_Listener);
 			RemoveListener<OnMapEnd>(OnMapEnd_Listener);
 			RemoveListener<CheckTransmit>(OnTransmit);
 			RemoveListener<OnTick>(OnOnTick_Listener);
 
 			CloseTimer();
-		}
-
-#nullable enable
-		private void ForceFullUpdate(CCSPlayerController? player)
-#nullable disable
-		{
-			if (player is null || !player.IsValid) return;
-
-			var networkGameServer = networkServerService.GetIGameServer();
-			networkGameServer.GetClientBySlot(player.Slot)?.ForceFullUpdate();
-
-			player.PlayerPawn.Value?.Teleport(null, player.PlayerPawn.Value.EyeAngles, null);
-		}
-
-		private HookResult Hook_StateTransition(DynamicHook hook)
-		{
-			var player = hook.GetParam<CCSPlayerPawn>(0).OriginalController.Value;
-			var state = hook.GetParam<CSPlayerState>(1);
-
-			if (player is null) return HookResult.Continue;
-
-			if (state != player.Pawn.Value?.As<CCSPlayerPawnBase>().PlayerState)
-			{
-				ForceFullUpdate(player);
-			}
-
-			return HookResult.Continue;
 		}
 
 		private void OnOnTick_Listener()
@@ -162,28 +127,6 @@ namespace CS2_HideTeammates
 			return HookResult.Continue;
 		}
 
-		[GameEventHandler(mode: HookMode.Pre)]
-		private HookResult OnEventPlayerDeathPre(EventPlayerDeath @event, GameEventInfo info)
-		{
-#nullable enable
-			CCSPlayerController? player = @event.Userid;
-#nullable disable
-			if (player != null && player.IsValid)
-			{
-				player.DesiredObserverMode = (int)ObserverMode_t.OBS_MODE_ROAMING;
-				Server.NextFrame(() =>
-				{
-					if (player != null && player.IsValid)
-					{
-						player.ObserverPawn.Value!.ObserverServices!.ForcedObserverMode = true;
-						player.ObserverPawn.Value!.ObserverServices!.ObserverMode = (byte)ObserverMode_t.OBS_MODE_ROAMING;
-						player.ObserverPawn.Value!.ObserverServices!.ObserverLastMode = ObserverMode_t.OBS_MODE_ROAMING;
-					}
-				});
-			}
-			return HookResult.Continue;
-		}
-
 		void OnMapStart_Listener(string sMapName)
 		{
 			CreateTimer();
@@ -201,7 +144,23 @@ namespace CS2_HideTeammates
 			foreach ((CCheckTransmitInfo info, CCSPlayerController? player) in infoList)
 #nullable disable
 			{
-				if (player == null || !player.IsValid || !player.Pawn.IsValid || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+				if (player == null || !player.IsValid || player.IsBot || player.IsHLTV || !player.Pawn.IsValid || player.Pawn.Value == null) continue;
+
+				if (player.Pawn.Value.ObserverServices != null)
+				{
+					if (!g_bHideObserverFix[player.Slot])
+					{
+						player.DesiredObserverMode = (int)ObserverMode_t.OBS_MODE_ROAMING;
+						player.Pawn.Value.ObserverServices.ForcedObserverMode = true;
+						player.Pawn.Value.ObserverServices.ObserverMode = (byte)ObserverMode_t.OBS_MODE_ROAMING;
+						player.Pawn.Value.ObserverServices.ObserverLastMode = ObserverMode_t.OBS_MODE_ROAMING;
+						player.Pawn.Value.ObserverServices.ObserverTarget.Raw = uint.MaxValue;
+						g_bHideObserverFix[player.Slot] = true;
+					}
+
+					continue;
+				}
+				g_bHideObserverFix[player.Slot] = false;
 
 				foreach (CCSPlayerController targetPlayer in g_Target[player.Slot].ToList())
 				{
