@@ -1,14 +1,14 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Cvars.Validators;
-using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Cvars.Validators;
 using CounterStrikeSharp.API.Modules.Timers;
-using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Utils;
 using PlayerSettings;
+using static CounterStrikeSharp.API.Core.Listeners;
 
 namespace CS2_HideTeammates
 {
@@ -29,13 +29,15 @@ namespace CS2_HideTeammates
 		List<CCSPlayerController>[] g_Target = new List<CCSPlayerController>[65];
 		CounterStrikeSharp.API.Modules.Timers.Timer g_Timer;
 
+		private readonly INetworkServerService networkServerService = new();
+
 		public FakeConVar<bool> Cvar_Enable = new("css_ht_enabled", "Disabled/enabled [0/1]", true, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public FakeConVar<int> Cvar_MaxDistance = new("css_ht_maximum", "The maximum distance a player can choose [1000-8000]", 8000, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<int>(1000, 8000));
 		public FakeConVar<bool> Cvar_HideComm = new("css_ht_hidecomm", "Disabled/enabled use of hide word for commands [0/1]", false, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.6.1";
+		public override string ModuleVersion => "1.DZ.6.2test";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -101,6 +103,18 @@ namespace CS2_HideTeammates
 			CloseTimer();
 		}
 
+#nullable enable
+		private void ForceFullUpdate(CCSPlayerController? player)
+#nullable disable
+		{
+			if (player is null || !player.IsValid) return;
+
+			var networkGameServer = networkServerService.GetIGameServer();
+			networkGameServer.GetClientBySlot(player.Slot)?.ForceFullUpdate();
+
+			player.PlayerPawn.Value?.Teleport(null, player.PlayerPawn.Value.EyeAngles, null);
+		}
+
 		private void OnOnTick_Listener()
 		{
 			Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(player =>
@@ -156,6 +170,10 @@ namespace CS2_HideTeammates
 						player.Pawn.Value.ObserverServices.ObserverLastMode = ObserverMode_t.OBS_MODE_ROAMING;
 						player.Pawn.Value.ObserverServices.ObserverTarget.Raw = uint.MaxValue;
 						g_bHideObserverFix[player.Slot] = true;
+						Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(pl =>
+						{
+							ForceFullUpdate(pl);
+						});
 					}
 
 					continue;
