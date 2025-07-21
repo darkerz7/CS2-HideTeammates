@@ -29,13 +29,15 @@ namespace CS2_HideTeammates
 		List<CCSPlayerController>[] g_Target = new List<CCSPlayerController>[65];
 		CounterStrikeSharp.API.Modules.Timers.Timer g_Timer;
 
+		private readonly INetworkServerService networkServerService = new();
+
 		public FakeConVar<bool> Cvar_Enable = new("css_ht_enabled", "Disabled/enabled [0/1]", true, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public FakeConVar<int> Cvar_MaxDistance = new("css_ht_maximum", "The maximum distance a player can choose [1000-8000]", 8000, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<int>(1000, 8000));
 		public FakeConVar<bool> Cvar_HideComm = new("css_ht_hidecomm", "Disabled/enabled use of hide word for commands [0/1]", false, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.6.3";
+		public override string ModuleVersion => "1.DZ.6.4";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -81,6 +83,7 @@ namespace CS2_HideTeammates
 
 			RegisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			RegisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
+			RegisterEventHandler<EventPlayerDeath>(OnEventPlayerDeath);
 			RegisterListener<OnMapStart>(OnMapStart_Listener);
 			RegisterListener<OnMapEnd>(OnMapEnd_Listener);
 			RegisterListener<CheckTransmit>(OnTransmit);
@@ -93,12 +96,25 @@ namespace CS2_HideTeammates
 		{
 			DeregisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			DeregisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
+			DeregisterEventHandler<EventPlayerDeath>(OnEventPlayerDeath);
 			RemoveListener<OnMapStart>(OnMapStart_Listener);
 			RemoveListener<OnMapEnd>(OnMapEnd_Listener);
 			RemoveListener<CheckTransmit>(OnTransmit);
 			RemoveListener<OnTick>(OnOnTick_Listener);
 
 			CloseTimer();
+		}
+
+#nullable enable
+		private void ForceFullUpdate(CCSPlayerController? player)
+#nullable disable
+		{
+			if (player is null || !player.IsValid) return;
+
+			var networkGameServer = networkServerService.GetIGameServer();
+			networkGameServer.GetClientBySlot(player.Slot)?.ForceFullUpdate();
+
+			player.PlayerPawn.Value?.Teleport(null, player.PlayerPawn.Value.EyeAngles, null);
 		}
 
 		private void OnOnTick_Listener()
@@ -126,7 +142,20 @@ namespace CS2_HideTeammates
 			GetValue(@event.Userid);
 			return HookResult.Continue;
 		}
+		private HookResult OnEventPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
+		{
+			if (!g_bEnable || @event.Userid == null) return HookResult.Continue;
 
+			CCSPlayerController pl = new(@event.Userid.Handle);
+
+			if (pl.IsValid)
+			{
+				ForceFullUpdate(pl);
+				for (int i = 0; i < 65; i++) g_Target[i].Remove(pl);
+			}
+
+			return HookResult.Continue;
+		}
 		void OnMapStart_Listener(string sMapName)
 		{
 			CreateTimer();
