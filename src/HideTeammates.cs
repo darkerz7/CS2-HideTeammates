@@ -22,6 +22,7 @@ namespace CS2_HideTeammates
 		bool g_bEnable = true;
 		int g_iMaxDistance = 8000;
 		bool g_bHideComm = false;
+		bool g_bHideIgnoreAttachments = false;
 		bool[] g_bHide = new bool[65];
 		int[] g_iDistance = new int[65];
 		bool[] g_bRMB = new bool[65];
@@ -34,10 +35,11 @@ namespace CS2_HideTeammates
 		public FakeConVar<bool> Cvar_Enable = new("css_ht_enabled", "Disabled/enabled [0/1]", true, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public FakeConVar<int> Cvar_MaxDistance = new("css_ht_maximum", "The maximum distance a player can choose [1000-8000]", 8000, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<int>(1000, 8000));
 		public FakeConVar<bool> Cvar_HideComm = new("css_ht_hidecomm", "Disabled/enabled use of hide word for commands [0/1]", false, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
+		public FakeConVar<bool> Cvar_HideIgnoreAttachments = new("css_ht_hideia", "Disabled/enabled ignoring player attachments (ex. prop leader glow) [0/1]", false, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.6.4";
+		public override string ModuleVersion => "1.DZ.6.5";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -77,6 +79,13 @@ namespace CS2_HideTeammates
 			{
 				g_bHideComm = value;
 				UI.CvarChangeNotify(Cvar_HideComm.Name, value.ToString(), Cvar_HideComm.Flags.HasFlag(ConVarFlags.FCVAR_NOTIFY));
+			};
+
+			g_bHideIgnoreAttachments = Cvar_HideComm.Value;
+			Cvar_HideIgnoreAttachments.ValueChanged += (sender, value) =>
+			{
+				g_bHideIgnoreAttachments = value;
+				UI.CvarChangeNotify(Cvar_HideIgnoreAttachments.Name, value.ToString(), Cvar_HideIgnoreAttachments.Flags.HasFlag(ConVarFlags.FCVAR_NOTIFY));
 			};
 
 			RegisterFakeConVars(typeof(ConVar));
@@ -197,7 +206,10 @@ namespace CS2_HideTeammates
 
 				foreach (CCSPlayerController targetPlayer in g_Target[player.Slot].ToList())
 				{
-					if (targetPlayer.IsValid && targetPlayer.Pawn.IsValid && targetPlayer.Pawn.Value != null && targetPlayer.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
+					//Console.WriteLine($"Child: {targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.Owner.DesignerName} Index: {targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.Owner.Index}");
+					//targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.Child == null - is there any model attached to the player?
+					//if (targetPlayer.IsValid && targetPlayer.Pawn.IsValid && targetPlayer.Pawn.Value != null && targetPlayer.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && (g_bHideIgnoreAttachments || targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.Child == null))
+					if (targetPlayer.IsValid && targetPlayer.Pawn.IsValid && targetPlayer.Pawn.Value != null && targetPlayer.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && (g_bHideIgnoreAttachments || !targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.Owner.DesignerName.Equals("prop_dynamic") && !targetPlayer.Pawn.Value.CBodyComponent.SceneNode.Child.NextSibling.Owner.DesignerName.Equals("prop_dynamic")))
 						info.TransmitEntities.Remove(targetPlayer.Pawn.Value);
 				}
 			}

@@ -16,6 +16,7 @@ Cvar | Parameter | Description
 `css_ht_enabled` | <0/1> | Enable/Disable plugin
 `css_ht_maximum` | <1000-8000> | The maximum distance a player can choose
 `css_ht_hidecomm` | <0/1> | Enable/Disable use of hide word for commands
+`css_ht_hideia` | <0/1> | Enable/Disable ignoring player attachments (ex. prop leader glow)
 
 ## Commands:
 Client Command | Description
