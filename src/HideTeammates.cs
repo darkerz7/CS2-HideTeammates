@@ -1,17 +1,18 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Cvars.Validators;
-using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Cvars.Validators;
 using CounterStrikeSharp.API.Modules.Timers;
-using static CounterStrikeSharp.API.Core.Listeners;
-using CounterStrikeSharp.API.Modules.Utils;
 using PlayerSettings;
+using static CounterStrikeSharp.API.Core.Listeners;
 
 namespace CS2_HideTeammates
 {
+	[MinimumApiVersion(330)]
 	public class HideTeammates : BasePlugin
 	{
 		readonly float TIMERTIME = 0.3f;
@@ -39,7 +40,7 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.6.5";
+		public override string ModuleVersion => "1.DZ.7";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -96,7 +97,7 @@ namespace CS2_HideTeammates
 			RegisterListener<OnMapStart>(OnMapStart_Listener);
 			RegisterListener<OnMapEnd>(OnMapEnd_Listener);
 			RegisterListener<CheckTransmit>(OnTransmit);
-			RegisterListener<OnTick>(OnOnTick_Listener);
+			RegisterListener<OnPlayerButtonsChanged>(OnOnPlayerButtonsChanged_Listener);
 
 			CreateTimer();
 		}
@@ -109,7 +110,7 @@ namespace CS2_HideTeammates
 			RemoveListener<OnMapStart>(OnMapStart_Listener);
 			RemoveListener<OnMapEnd>(OnMapEnd_Listener);
 			RemoveListener<CheckTransmit>(OnTransmit);
-			RemoveListener<OnTick>(OnOnTick_Listener);
+			RemoveListener<OnPlayerButtonsChanged>(OnOnPlayerButtonsChanged_Listener);
 
 			CloseTimer();
 		}
@@ -126,13 +127,12 @@ namespace CS2_HideTeammates
 			player.PlayerPawn.Value?.Teleport(null, player.PlayerPawn.Value.EyeAngles, null);
 		}
 
-		private void OnOnTick_Listener()
+		private void OnOnPlayerButtonsChanged_Listener(CCSPlayerController player, PlayerButtons pressed, PlayerButtons released)
 		{
-			Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(player =>
+			if (player != null && player.IsValid)
 			{
-				if ((player.Buttons & PlayerButtons.Attack2) != 0) g_bRMB[player.Slot] = true;
-				else g_bRMB[player.Slot] = false;
-			});
+				g_bRMB[player.Slot] = (player.Buttons & PlayerButtons.Attack2) != 0;
+			}
 		}
 		HookResult OnEventPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
 		{
@@ -161,6 +161,7 @@ namespace CS2_HideTeammates
 			{
 				ForceFullUpdate(pl);
 				for (int i = 0; i < 65; i++) g_Target[i].Remove(pl);
+				g_Target[pl.Slot].Clear();
 			}
 
 			return HookResult.Continue;
@@ -228,7 +229,7 @@ namespace CS2_HideTeammates
 						if (g_iDistance[player.Slot] == 0) g_Target[player.Slot].Add(targetplayer);
 						else
 						{
-							if (Distance(targetplayer.Pawn.Value?.AbsOrigin, player.Pawn.Value?.AbsOrigin) <= g_iDistance[player.Slot])
+							if (Distance((System.Numerics.Vector3)targetplayer.Pawn.Value?.AbsOrigin, (System.Numerics.Vector3)player.Pawn.Value?.AbsOrigin) <= g_iDistance[player.Slot])
 							{
 								g_Target[player.Slot].Add(targetplayer);
 							}
@@ -370,7 +371,7 @@ namespace CS2_HideTeammates
 			}
 		}
 
-		static float Distance(Vector point1, Vector point2)
+		static float Distance(System.Numerics.Vector3 point1, System.Numerics.Vector3 point2)
 		{
 			float dx = point2.X - point1.X;
 			float dy = point2.Y - point1.Y;
