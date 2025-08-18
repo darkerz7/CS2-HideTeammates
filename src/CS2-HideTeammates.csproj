@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.332" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.336" />
   </ItemGroup>
 
   <ItemGroup>
@@ -19,7 +19,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
-		<None Update="gamedata\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
@@ -28,6 +27,5 @@
 	  <Exec Command="if not exist $(ProjectDir)build\plugins\$(TargetName) mkdir $(ProjectDir)build\plugins\$(TargetName)" />
     <Exec Command="copy /Y $(TargetDir)$(TargetName).dll $(ProjectDir)build\plugins\$(TargetName)\$(TargetName).dll" />
 	  <Exec Command="move /Y $(TargetDir)lang $(ProjectDir)build\plugins\$(TargetName)" />
-		<Exec Command="move /Y $(TargetDir)gamedata $(ProjectDir)build" />
   </Target>
 </Project>
