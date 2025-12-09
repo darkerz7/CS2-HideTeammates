@@ -21,6 +21,7 @@ Cvar | Parameter | Description
 ## Commands:
 Client Command | Description
 --- | ---
+`css_htcrash/css_hidecrash` | Agree to use hide at your own risk
 `css_ht/css_hide [<-1-CVAR_MAX_Distance>]` | (-1 - Disable, 0 - Enable on the entire map, 1-CVAR_MAX_Distance - Enable ont the Distance)
 `css_ht/css_hide` | Toggle hide teammates on the entire map. Maybe replaced by menu later
 `css_htall/css_hideall` | Toggle hide teammates on the entire map

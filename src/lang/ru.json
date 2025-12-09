@@ -4,5 +4,8 @@
   "Reply.EnableAllMap": "Скрытие тиммейтов сейчас {green}Включено {default}на {lightblue}Всей карте",
   "Reply.Enable": "Скрытие тиммейтов сейчас {green}Включено {default}на дистанции {lightblue}{0}",
   "Reply.Wrong": "Скрытие тиммейтов. {red}Ошибка ввода{default}, Диапозон {lime}0{default}-{lime}{0}",
-  "Reply.Disable": "Скрытие тиммейтов сейчас {red}Отключено"
+  "Reply.Disable": "Скрытие тиммейтов сейчас {red}Отключено",
+  "Reply.HideCrash": "Использование хайда приводит к {red}сбою клиентов{default}. Для разрешения наберите {lightblue}!htcrash{0}",
+  "Reply.CrashEnable": "Вы {green}разрешили хайд{default}, несмотря на {red}сбои клиента",
+  "Reply.CrashDisable": "Вы {red}запретили хайд"
 } 

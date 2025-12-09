@@ -4,5 +4,8 @@
   "Reply.EnableAllMap": "Hiding teammates across the {lightblue}entire map",
   "Reply.Enable": "Hiding teammates within {lightblue}{0} {default}units",
   "Reply.Wrong": "{red}Wrong distance input{default}, range must be between {lime}0{default}-{lime}{0}",
-  "Reply.Disable": "{red}Unhidden {default}all teammates"
+  "Reply.Disable": "{red}Unhidden {default}all teammates",
+  "Reply.HideCrash": "Using hide causes {red}clients to crash{default}. To resolve this, type {lightblue}!htcrash{0}",
+  "Reply.CrashEnable": "You {green}allowed hide {default}despite {red}client crashes",
+  "Reply.CrashDisable": "You {red}disallowed hide"
 } 

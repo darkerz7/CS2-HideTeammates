@@ -27,7 +27,8 @@ namespace CS2_HideTeammates
 		bool[] g_bHide = new bool[65];
 		int[] g_iDistance = new int[65];
 		bool[] g_bRMB = new bool[65];
-		List<CCSPlayerController>[] g_Target = new List<CCSPlayerController>[65];
+        bool[] g_bHideCrash = new bool[65];
+        List<CCSPlayerController>[] g_Target = new List<CCSPlayerController>[65];
 		CounterStrikeSharp.API.Modules.Timers.Timer g_Timer;
 
 		public FakeConVar<bool> Cvar_Enable = new("css_ht_enabled", "Disabled/enabled [0/1]", true, flags: ConVarFlags.FCVAR_NOTIFY, new RangeValidator<bool>(false, true));
@@ -37,7 +38,7 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.8";
+		public override string ModuleVersion => "1.DZ.9";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
@@ -126,7 +127,8 @@ namespace CS2_HideTeammates
 			{
 				g_bHide[player.Slot] = false;
 				g_iDistance[player.Slot] = 0;
-			}
+				g_bHideCrash[player.Slot] = false;
+            }
 			return HookResult.Continue;
 		}
 		HookResult OnEventPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
@@ -170,7 +172,7 @@ namespace CS2_HideTeammates
 			Utilities.GetPlayers().Where(p => p.IsValid && p.Pawn.IsValid).ToList().ForEach(player =>
 			{
 				g_Target[player.Slot].Clear();
-				if (g_bHide[player.Slot] && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
+				if (g_bHideCrash[player.Slot] && g_bHide[player.Slot] && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
 				{
 					Utilities.GetPlayers().Where(target => target != null && target.IsValid && target.Pawn.IsValid && !g_bRMB[player.Slot] && target.Slot != player.Slot && target.Team == player.Team && target.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE).ToList().ForEach(targetplayer =>
 					{
@@ -187,7 +189,39 @@ namespace CS2_HideTeammates
 			});
 		}
 #nullable enable
-		[ConsoleCommand("css_ht", "Allows to hide players and choose the distance")]
+        [ConsoleCommand("css_htcrash", "Agree to use hide at your own risk")]
+        [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+        public void OnCommandHideCrash(CCSPlayerController? player, CommandInfo command)
+#nullable disable
+        {
+            if (player == null || !player.IsValid) return;
+            bool bConsole = command.CallingContext == CommandCallingContext.Console;
+            if (!g_bEnable)
+            {
+                UI.ReplyToCommand(player, bConsole, "Reply.PluginDisabled");
+                return;
+            }
+            g_bHideCrash[player.Slot] = !g_bHideCrash[player.Slot];
+            SetValue(player);
+            if (g_bHideCrash[player.Slot])
+            {
+                UI.ReplyToCommand(player, bConsole, "Reply.CrashEnable");
+            }
+            else
+            {
+                UI.ReplyToCommand(player, bConsole, "Reply.CrashDisable");
+            }
+        }
+#nullable enable
+        [ConsoleCommand("css_hidecrash", "Agree to use hide at your own risk")]
+        [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+        public void OnCommandHideCrashWord(CCSPlayerController? player, CommandInfo command)
+#nullable disable
+        {
+            if (g_bHideComm) OnCommandHideCrash(player, command);
+        }
+#nullable enable
+        [ConsoleCommand("css_ht", "Allows to hide players and choose the distance")]
 		[CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_ONLY)]
 		public void OnCommandHide(CCSPlayerController? player, CommandInfo command)
 #nullable disable
@@ -199,7 +233,12 @@ namespace CS2_HideTeammates
 				UI.ReplyToCommand(player, bConsole, "Reply.PluginDisabled");
 				return;
 			}
-			if (!Int32.TryParse(command.GetArg(1), out int customdistance)) customdistance = -2;
+            if (!g_bHideCrash[player.Slot])
+            {
+                UI.ReplyToCommand(player, bConsole, "Reply.HideCrash", g_bHideComm ? " (!hidecrash)" : "");
+                return;
+            }
+            if (!Int32.TryParse(command.GetArg(1), out int customdistance)) customdistance = -2;
 			if (customdistance >= 0 && customdistance <= g_iMaxDistance)
 			{
 				g_bHide[player.Slot] = true;
@@ -250,8 +289,13 @@ namespace CS2_HideTeammates
 				UI.ReplyToCommand(player, bConsole, "Reply.PluginDisabled");
 				return;
 			}
-			
-			g_bHide[player.Slot] = !g_bHide[player.Slot];
+            if (!g_bHideCrash[player.Slot])
+            {
+                UI.ReplyToCommand(player, bConsole, "Reply.HideCrash", g_bHideComm ? " (!hidecrash)" : "");
+                return;
+            }
+
+            g_bHide[player.Slot] = !g_bHide[player.Slot];
 			SetValue(player);
 			if (g_bHide[player.Slot])
 			{
@@ -278,7 +322,12 @@ namespace CS2_HideTeammates
 			if (player == null || !player.IsValid) return;
 			if (_PlayerSettingsAPI != null)
 			{
-				string sHide = _PlayerSettingsAPI.GetPlayerSettingsValue(player, "HT_Hide", "0");
+                string sHideCrash = _PlayerSettingsAPI.GetPlayerSettingsValue(player, "HT_Crash", "0");
+                if (string.IsNullOrEmpty(sHideCrash) || !Int32.TryParse(sHideCrash, out int iHideCrash)) iHideCrash = 0;
+                if (iHideCrash == 0) g_bHideCrash[player.Slot] = false;
+                else g_bHideCrash[player.Slot] = true;
+
+                string sHide = _PlayerSettingsAPI.GetPlayerSettingsValue(player, "HT_Hide", "0");
 				if (string.IsNullOrEmpty(sHide) || !Int32.TryParse(sHide, out int iHide)) iHide = 0;
 				if (iHide == 0) g_bHide[player.Slot] = false;
 				else g_bHide[player.Slot] = true;
@@ -297,7 +346,10 @@ namespace CS2_HideTeammates
 			if (player == null || !player.IsValid) return;
 			if (_PlayerSettingsAPI != null)
 			{
-				if (g_bHide[player.Slot]) _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Hide", "1");
+                if (g_bHideCrash[player.Slot]) _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Crash", "1");
+                else _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Crash", "0");
+
+                if (g_bHide[player.Slot]) _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Hide", "1");
 				else _PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Hide", "0");
 
 				_PlayerSettingsAPI.SetPlayerSettingsValue(player, "HT_Distance", g_iDistance[player.Slot].ToString());
