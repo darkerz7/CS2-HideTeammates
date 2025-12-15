@@ -30,7 +30,7 @@ namespace CS2_HideTeammates
 		public static void ReplyToCommand(CCSPlayerController player, bool bConsole, string sMessage, params object[] arg)
 		{
 			if (Strlocalizer == null) return;
-			Server.NextFrame(() =>
+			Server.NextWorldUpdate(() =>
 			{
 				if (player is { IsValid: true, IsBot: false, IsHLTV: false })
 				{

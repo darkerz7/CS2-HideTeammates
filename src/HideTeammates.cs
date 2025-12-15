@@ -38,7 +38,7 @@ namespace CS2_HideTeammates
 		public override string ModuleName => "Hide Teammates";
 		public override string ModuleDescription => "A plugin that can !hide with individual distances";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.9";
+		public override string ModuleVersion => "1.DZ.9.1";
 		public override void OnAllPluginsLoaded(bool hotReload)
 		{
 			_PlayerSettingsAPI = _PlayerSettingsAPICapability.Get();
