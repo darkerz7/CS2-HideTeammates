@@ -3,10 +3,10 @@ Hides Teammates on the entire map or distance
 
 ## Required packages:
 1. [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/)
-2. [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) (0.9.3)
+2. [CS2-PlayerSettingsNext](https://github.com/darkerz7/CS2-PlayerSettingsNext)
 
 ## Installation:
-1. Install `PlayerSettingsCS2`
+1. Install `CS2-PlayerSettingsNext`
 2. Compile or copy CS2-HideTeammates to `counterstrikesharp/plugins/CS2-HideTeammates` folger
 3. Restart server
 
